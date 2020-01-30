@@ -9,8 +9,10 @@ import android.hardware.camera2.CameraManager;
 import android.hardware.camera2.CameraMetadata;
 import android.hardware.camera2.params.StreamConfigurationMap;
 import android.media.CamcorderProfile;
-import android.util.Size;
-import io.flutter.plugins.camera.Camera.ResolutionPreset;
+import android.os.Build;
+
+import androidx.annotation.RequiresApi;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -18,6 +20,8 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import io.flutter.plugins.camera.CameraV2.ResolutionPreset;
 
 /** Provides various utilities for camera. */
 public final class CameraUtils {
@@ -34,13 +38,18 @@ public final class CameraUtils {
     return new Size(profile.videoFrameWidth, profile.videoFrameHeight);
   }
 
+  @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
   static Size computeBestCaptureSize(StreamConfigurationMap streamConfigurationMap) {
     // For still image captures, we use the largest available size.
-    return Collections.max(
-        Arrays.asList(streamConfigurationMap.getOutputSizes(ImageFormat.JPEG)),
-        new CompareSizesByArea());
+    List<Size> sizeList = new ArrayList<>();
+    for (android.util.Size outputSize:
+    streamConfigurationMap.getOutputSizes(ImageFormat.JPEG)) {
+      sizeList.add(new Size(outputSize.getWidth(),outputSize.getHeight()));
+    }
+    return Collections.max(sizeList, new CompareSizesByArea());
   }
 
+  @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
   public static List<Map<String, Object>> getAvailableCameras(Activity activity)
       throws CameraAccessException {
     CameraManager cameraManager = (CameraManager) activity.getSystemService(Context.CAMERA_SERVICE);
