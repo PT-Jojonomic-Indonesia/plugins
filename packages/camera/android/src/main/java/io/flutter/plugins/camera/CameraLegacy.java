@@ -2,19 +2,14 @@ package io.flutter.plugins.camera;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
-import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
-import android.graphics.ImageFormat;
 import android.graphics.Matrix;
-import android.graphics.SurfaceTexture;
 import android.hardware.Camera;
-import android.hardware.camera2.params.StreamConfigurationMap;
 import android.media.CamcorderProfile;
-import android.media.Image;
-import android.media.ImageReader;
 import android.media.MediaRecorder;
 import android.os.Build;
+import android.util.Log;
 import android.view.OrientationEventListener;
 import android.view.Surface;
 
@@ -24,11 +19,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -37,151 +28,150 @@ import io.flutter.plugin.common.MethodChannel.Result;
 import io.flutter.view.TextureRegistry.SurfaceTextureEntry;
 
 import static android.view.OrientationEventListener.ORIENTATION_UNKNOWN;
-import static io.flutter.plugins.camera.CameraUtils.computeBestPreviewSize;
 
 public class CameraLegacy implements io.flutter.plugins.camera.Camera {
-  private static final AspectRatio DEFAULT_ASPECT_RATIO = AspectRatio.of(4, 3);
-  private final AtomicBoolean isPictureCaptureInProgress = new AtomicBoolean(false);
-  private final SurfaceTextureEntry flutterTexture;
-//  private final CameraManager cameraManager;
-  private final OrientationEventListener orientationEventListener;
-  private final boolean isFrontFacing;
-  private final int sensorOrientation;
-  private final int cameraId;
-//  private final Size captureSize;
+    private static final AspectRatio DEFAULT_ASPECT_RATIO = AspectRatio.of(4, 3);
+    private final AtomicBoolean isPictureCaptureInProgress = new AtomicBoolean(false);
+    private final SurfaceTextureEntry flutterTexture;
+    //  private final CameraManager cameraManager;
+    private final OrientationEventListener orientationEventListener;
+    private final boolean isFrontFacing;
+    private final int sensorOrientation;
+    private final int cameraId;
+    //  private final Size captureSize;
 //  private final Size previewSize;
-  private final boolean enableAudio;
-  private final SizeMap mPreviewSizes = new SizeMap();
-  private final SizeMap mPictureSizes = new SizeMap();
+    private final boolean enableAudio;
+    private final SizeMap mPreviewSizes = new SizeMap();
+    private final SizeMap mPictureSizes = new SizeMap();
 
-  private Camera camera;
-//  private CameraDevice cameraDevice;
+    private Camera camera;
+    //  private CameraDevice cameraDevice;
 //  private CameraCaptureSession cameraCaptureSession;
 //  private ImageReader pictureImageReader;
 //  private ImageReader imageStreamReader;
-  private DartMessenger dartMessenger;
-//  private CaptureRequest.Builder captureRequestBuilder;
-  private MediaRecorder mediaRecorder;
-  private boolean recordingVideo;
-  private CamcorderProfile recordingProfile;
-  private int currentOrientation = ORIENTATION_UNKNOWN;
-  private Camera.Parameters cameraParameters;
+    private DartMessenger dartMessenger;
+    //  private CaptureRequest.Builder captureRequestBuilder;
+    private MediaRecorder mediaRecorder;
+    private boolean recordingVideo;
+    private CamcorderProfile recordingProfile;
+    private int currentOrientation = ORIENTATION_UNKNOWN;
+    private Camera.Parameters cameraParameters;
 
-  // Mirrors camera.dart
-  public enum ResolutionPreset {
-    low,
-    medium,
-    high,
-    veryHigh,
-    ultraHigh,
-    max,
-  }
-
-  public CameraLegacy(
-      final Activity activity,
-      final SurfaceTextureEntry flutterTexture,
-      final DartMessenger dartMessenger,
-      final String cameraName,
-      final String resolutionPreset,
-      final boolean enableAudio) {
-    if (activity == null) {
-      throw new IllegalStateException("No activity available!");
+    // Mirrors camera.dart
+    public enum ResolutionPreset {
+        low,
+        medium,
+        high,
+        veryHigh,
+        ultraHigh,
+        max,
     }
 
-    int cameraId;
-    try {
-      cameraId = Integer.parseInt(cameraName);
-    }catch (NumberFormatException e){
-      cameraId = 0;
-    }
-    this.cameraId = cameraId;
-    this.enableAudio = enableAudio;
-    this.flutterTexture = flutterTexture;
-    this.dartMessenger = dartMessenger;
+    public CameraLegacy(
+            final Activity activity,
+            final SurfaceTextureEntry flutterTexture,
+            final DartMessenger dartMessenger,
+            final String cameraName,
+            final String resolutionPreset,
+            final boolean enableAudio) {
+        if (activity == null) {
+            throw new IllegalStateException("No activity available!");
+        }
+
+        int cameraId;
+        try {
+            cameraId = Integer.parseInt(cameraName);
+        } catch (NumberFormatException e) {
+            cameraId = 0;
+        }
+        this.cameraId = cameraId;
+        this.enableAudio = enableAudio;
+        this.flutterTexture = flutterTexture;
+        this.dartMessenger = dartMessenger;
 //    this.cameraManager = (CameraManager) activity.getSystemService(Context.CAMERA_SERVICE);
-    orientationEventListener =
-        new OrientationEventListener(activity.getApplicationContext()) {
-          @Override
-          public void onOrientationChanged(int i) {
-            if (i == ORIENTATION_UNKNOWN) {
-              return;
-            }
-            // Convert the raw deg angle to the nearest multiple of 90.
-            currentOrientation = (int) Math.round(i / 90.0) * 90;
-          }
-        };
-    orientationEventListener.enable();
-    Camera.CameraInfo cameraInfo = new Camera.CameraInfo();
-    Camera.getCameraInfo(cameraId, cameraInfo);
+        orientationEventListener =
+                new OrientationEventListener(activity.getApplicationContext()) {
+                    @Override
+                    public void onOrientationChanged(int i) {
+                        if (i == ORIENTATION_UNKNOWN) {
+                            return;
+                        }
+                        // Convert the raw deg angle to the nearest multiple of 90.
+                        currentOrientation = (int) Math.round(i / 90.0) * 90;
+                    }
+                };
+        orientationEventListener.enable();
+        Camera.CameraInfo cameraInfo = new Camera.CameraInfo();
+        Camera.getCameraInfo(cameraId, cameraInfo);
 
 //    CameraCharacteristics characteristics = cameraManager.getCameraCharacteristics(cameraName);
 //    StreamConfigurationMap streamConfigurationMap =
 //        characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
 //    //noinspection ConstantConditions
-    sensorOrientation = cameraInfo.orientation;
+        sensorOrientation = cameraInfo.orientation;
 //    //noinspection ConstantConditions
-    isFrontFacing = cameraInfo.facing == Camera.CameraInfo.CAMERA_FACING_FRONT;
+        isFrontFacing = cameraInfo.facing == Camera.CameraInfo.CAMERA_FACING_FRONT;
 //    ResolutionPreset preset = ResolutionPreset.valueOf(resolutionPreset);
 //    recordingProfile =
 //        CameraUtils.getBestAvailableCamcorderProfileForResolutionPreset(cameraName, preset);
 //    captureSize = new Size(recordingProfile.videoFrameWidth, recordingProfile.videoFrameHeight);
 //    previewSize = computeBestPreviewSize(cameraName, preset);
-  }
-
-  private void prepareMediaRecorder(String outputFilePath) throws IOException {
-    if (mediaRecorder != null) {
-      mediaRecorder.release();
     }
-    mediaRecorder = new MediaRecorder();
 
-    // There's a specific order that mediaRecorder expects. Do not change the order
-    // of these function calls.
-    if (enableAudio) mediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
-    mediaRecorder.setVideoSource(MediaRecorder.VideoSource.SURFACE);
-    mediaRecorder.setOutputFormat(recordingProfile.fileFormat);
-    if (enableAudio) mediaRecorder.setAudioEncoder(recordingProfile.audioCodec);
-    mediaRecorder.setVideoEncoder(recordingProfile.videoCodec);
-    mediaRecorder.setVideoEncodingBitRate(recordingProfile.videoBitRate);
-    if (enableAudio) mediaRecorder.setAudioSamplingRate(recordingProfile.audioSampleRate);
-    mediaRecorder.setVideoFrameRate(recordingProfile.videoFrameRate);
-    mediaRecorder.setVideoSize(recordingProfile.videoFrameWidth, recordingProfile.videoFrameHeight);
-    mediaRecorder.setOutputFile(outputFilePath);
-    mediaRecorder.setOrientationHint(getMediaOrientation());
+    private void prepareMediaRecorder(String outputFilePath) throws IOException {
+        if (mediaRecorder != null) {
+            mediaRecorder.release();
+        }
+        mediaRecorder = new MediaRecorder();
 
-    mediaRecorder.prepare();
-  }
+        // There's a specific order that mediaRecorder expects. Do not change the order
+        // of these function calls.
+        if (enableAudio) mediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
+        mediaRecorder.setVideoSource(MediaRecorder.VideoSource.SURFACE);
+        mediaRecorder.setOutputFormat(recordingProfile.fileFormat);
+        if (enableAudio) mediaRecorder.setAudioEncoder(recordingProfile.audioCodec);
+        mediaRecorder.setVideoEncoder(recordingProfile.videoCodec);
+        mediaRecorder.setVideoEncodingBitRate(recordingProfile.videoBitRate);
+        if (enableAudio) mediaRecorder.setAudioSamplingRate(recordingProfile.audioSampleRate);
+        mediaRecorder.setVideoFrameRate(recordingProfile.videoFrameRate);
+        mediaRecorder.setVideoSize(recordingProfile.videoFrameWidth, recordingProfile.videoFrameHeight);
+        mediaRecorder.setOutputFile(outputFilePath);
+        mediaRecorder.setOrientationHint(getMediaOrientation());
 
-  @SuppressLint("MissingPermission")
-  public void open(@NonNull final Result result){
-    camera = Camera.open(cameraId);
-    cameraParameters = camera.getParameters();
-    try {
-      startPreview();
-    } catch (CameraException e) {
-      e.printStackTrace();
+        mediaRecorder.prepare();
     }
-    mPreviewSizes.clear();
-    for (Camera.Size size : cameraParameters.getSupportedPreviewSizes()) {
-      mPreviewSizes.add(new Size(size.width, size.height));
-    }
-    // Supported picture sizes;
-    mPictureSizes.clear();
-    for (Camera.Size size : cameraParameters.getSupportedPictureSizes()) {
-      mPictureSizes.add(new Size(size.width, size.height));
-    }
-    Size previewSize = mPreviewSizes.sizes(DEFAULT_ASPECT_RATIO).last();
-    Size pictureSize = mPictureSizes.sizes(DEFAULT_ASPECT_RATIO).last();
-    cameraParameters.setPreviewSize(previewSize.getWidth(), previewSize.getHeight());
-    cameraParameters.setPictureSize(pictureSize.getWidth(), pictureSize.getHeight());
-    cameraParameters.setRotation(getMediaOrientation());
-    camera.setDisplayOrientation(90);
-    camera.setParameters(cameraParameters);
 
-    Map<String, Object> reply = new HashMap<>();
-    reply.put("textureId", flutterTexture.id());
-    reply.put("previewWidth", previewSize.getWidth());
-    reply.put("previewHeight", previewSize.getHeight());
-    result.success(reply);
+    @SuppressLint("MissingPermission")
+    public void open(@NonNull final Result result) {
+        camera = Camera.open(cameraId);
+        cameraParameters = camera.getParameters();
+        try {
+            startPreview();
+        } catch (CameraException e) {
+            e.printStackTrace();
+        }
+        mPreviewSizes.clear();
+        for (Camera.Size size : cameraParameters.getSupportedPreviewSizes()) {
+            mPreviewSizes.add(new Size(size.width, size.height));
+        }
+        // Supported picture sizes;
+        mPictureSizes.clear();
+        for (Camera.Size size : cameraParameters.getSupportedPictureSizes()) {
+            mPictureSizes.add(new Size(size.width, size.height));
+        }
+        Size previewSize = mPreviewSizes.sizes(DEFAULT_ASPECT_RATIO).last();
+        Size pictureSize = mPictureSizes.sizes(DEFAULT_ASPECT_RATIO).last();
+        cameraParameters.setPreviewSize(previewSize.getWidth(), previewSize.getHeight());
+        cameraParameters.setPictureSize(pictureSize.getWidth(), pictureSize.getHeight());
+        cameraParameters.setRotation(0);
+        camera.setDisplayOrientation(90);
+        camera.setParameters(cameraParameters);
+
+        Map<String, Object> reply = new HashMap<>();
+        reply.put("textureId", flutterTexture.id());
+        reply.put("previewWidth", previewSize.getWidth());
+        reply.put("previewHeight", previewSize.getHeight());
+        result.success(reply);
 //    pictureImageReader =
 //        ImageReader.newInstance(
 //            captureSize.getWidth(), captureSize.getHeight(), ImageFormat.JPEG, 2);
@@ -250,59 +240,63 @@ public class CameraLegacy implements io.flutter.plugins.camera.Camera {
 //          }
 //        },
 //        null);
-  }
-
-  private void writeToFile(ByteBuffer buffer, File file) throws IOException {
-    try (FileOutputStream outputStream = new FileOutputStream(file)) {
-      while (0 < buffer.remaining()) {
-        outputStream.getChannel().write(buffer);
-      }
     }
-  }
 
-  SurfaceTextureEntry getFlutterTexture() {
-    return flutterTexture;
-  }
-
-  public void takePicture(String filePath, @NonNull final Result result) {
-    if (!isPictureCaptureInProgress.getAndSet(true)) {
-      camera.takePicture(null, null, null, new Camera.PictureCallback() {
-        @Override
-        public void onPictureTaken(byte[] data, Camera camera) {
-          final File file = new File(filePath);
-          if (file.exists()) {
-            result.error(
-                    "fileExists", "File at path '" + filePath + "' already exists. Cannot overwrite.", null);
-            return;
-          }
-          FileOutputStream fileOutputStream = null;
-          try {
-            Bitmap orignalImage = BitmapFactory.decodeByteArray(data, 0, data.length);
-            Matrix matrix = new Matrix();
-            matrix.postRotate(getMediaOrientation());
-            Bitmap rotatedBitmap = Bitmap.createBitmap(orignalImage, 0, 0, orignalImage.getWidth(), orignalImage.getHeight(),
-                    matrix, true);
-            fileOutputStream = new FileOutputStream(file);
-            rotatedBitmap.compress(Bitmap.CompressFormat.JPEG,100, fileOutputStream);
-            result.success(null);
-          }
-          catch (IOException e) {
-            result.error("IOError", "Failed saving image", null);
-          } finally {
-            if(fileOutputStream != null){
-              try {
-                fileOutputStream.close();
-              } catch (IOException e) {
-                e.printStackTrace();
-              }
+    private void writeToFile(ByteBuffer buffer, File file) throws IOException {
+        try (FileOutputStream outputStream = new FileOutputStream(file)) {
+            while (0 < buffer.remaining()) {
+                outputStream.getChannel().write(buffer);
             }
-            isPictureCaptureInProgress.set(false);
-            camera.cancelAutoFocus();
-            camera.startPreview();
-          }
         }
-      });
     }
+
+    SurfaceTextureEntry getFlutterTexture() {
+        return flutterTexture;
+    }
+
+    public void takePicture(String filePath, @NonNull final Result result) {
+        if (!isPictureCaptureInProgress.getAndSet(true)) {
+            camera.takePicture(null, null, null, new Camera.PictureCallback() {
+                @Override
+                public void onPictureTaken(byte[] data, Camera camera) {
+                    final File file = new File(filePath);
+                    if (file.exists()) {
+                        result.error(
+                                "fileExists", "File at path '" + filePath + "' already exists. Cannot overwrite.", null);
+                        return;
+                    }
+                    FileOutputStream fileOutputStream = null;
+                    try {
+                        Bitmap originalImage = BitmapFactory.decodeByteArray(data, 0, data.length);
+                        Matrix matrix = new Matrix();
+                        if (isFrontFacing) {
+                            matrix.preScale(-1, 1);
+                            matrix.postRotate(getMediaOrientation() - 180);
+                        } else {
+                            matrix.postRotate(getMediaOrientation());
+                        }
+                        Bitmap rotatedBitmap = Bitmap.createBitmap(originalImage, 0, 0, originalImage.getWidth(), originalImage.getHeight(),
+                                matrix, false);
+                        fileOutputStream = new FileOutputStream(file);
+                        rotatedBitmap.compress(Bitmap.CompressFormat.JPEG, 100, fileOutputStream);
+                        result.success(null);
+                    } catch (IOException e) {
+                        result.error("IOError", "Failed saving image", null);
+                    } finally {
+                        if (fileOutputStream != null) {
+                            try {
+                                fileOutputStream.close();
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                            }
+                        }
+                        isPictureCaptureInProgress.set(false);
+                        camera.cancelAutoFocus();
+                        camera.startPreview();
+                    }
+                }
+            });
+        }
 //    final File file = new File(filePath);
 //
 //    if (file.exists()) {
@@ -355,16 +349,16 @@ public class CameraLegacy implements io.flutter.plugins.camera.Camera {
 //    } catch (CameraAccessException e) {
 //      result.error("cameraAccess", e.getMessage(), null);
 //    }
-  }
+    }
 
-  private void createCaptureSession(int templateType, Surface... surfaces)
-      throws CameraException {
+    private void createCaptureSession(int templateType, Surface... surfaces)
+            throws CameraException {
 //    createCaptureSession(templateType, null, surfaces);
-  }
+    }
 
-  private void createCaptureSession(
-      int templateType, Runnable onSuccessCallback, Surface... surfaces)
-      throws CameraException {
+    private void createCaptureSession(
+            int templateType, Runnable onSuccessCallback, Surface... surfaces)
+            throws CameraException {
 //    // Close any existing capture session.
 //    closeCaptureSession();
 //
@@ -421,9 +415,9 @@ public class CameraLegacy implements io.flutter.plugins.camera.Camera {
 //    surfaceList.addAll(remainingSurfaces);
 //    // Start the session
 //    cameraDevice.createCaptureSession(surfaceList, callback, null);
-  }
+    }
 
-  public void startVideoRecording(String filePath, Result result) {
+    public void startVideoRecording(String filePath, Result result) {
 //    if (new File(filePath).exists()) {
 //      result.error("fileExists", "File at path '" + filePath + "' already exists.", null);
 //      return;
@@ -437,79 +431,79 @@ public class CameraLegacy implements io.flutter.plugins.camera.Camera {
 //    } catch (CameraAccessException | IOException e) {
 //      result.error("videoRecordingFailed", e.getMessage(), null);
 //    }
-  }
-
-  public void stopVideoRecording(@NonNull final Result result) {
-    if (!recordingVideo) {
-      result.success(null);
-      return;
     }
 
-    try {
-      recordingVideo = false;
-      mediaRecorder.stop();
-      mediaRecorder.reset();
-      startPreview();
-      result.success(null);
-    } catch (CameraException | IllegalStateException e) {
-      result.error("videoRecordingFailed", e.getMessage(), null);
-    }
-  }
+    public void stopVideoRecording(@NonNull final Result result) {
+        if (!recordingVideo) {
+            result.success(null);
+            return;
+        }
 
-  public void pauseVideoRecording(@NonNull final Result result) {
-    if (!recordingVideo) {
-      result.success(null);
-      return;
-    }
-
-    try {
-      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-        mediaRecorder.pause();
-      } else {
-        result.error("videoRecordingFailed", "pauseVideoRecording requires Android API +24.", null);
-        return;
-      }
-    } catch (IllegalStateException e) {
-      result.error("videoRecordingFailed", e.getMessage(), null);
-      return;
+        try {
+            recordingVideo = false;
+            mediaRecorder.stop();
+            mediaRecorder.reset();
+            startPreview();
+            result.success(null);
+        } catch (CameraException | IllegalStateException e) {
+            result.error("videoRecordingFailed", e.getMessage(), null);
+        }
     }
 
-    result.success(null);
-  }
+    public void pauseVideoRecording(@NonNull final Result result) {
+        if (!recordingVideo) {
+            result.success(null);
+            return;
+        }
 
-  public void resumeVideoRecording(@NonNull final Result result) {
-    if (!recordingVideo) {
-      result.success(null);
-      return;
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                mediaRecorder.pause();
+            } else {
+                result.error("videoRecordingFailed", "pauseVideoRecording requires Android API +24.", null);
+                return;
+            }
+        } catch (IllegalStateException e) {
+            result.error("videoRecordingFailed", e.getMessage(), null);
+            return;
+        }
+
+        result.success(null);
     }
 
-    try {
-      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-        mediaRecorder.resume();
-      } else {
-        result.error(
-            "videoRecordingFailed", "resumeVideoRecording requires Android API +24.", null);
-        return;
-      }
-    } catch (IllegalStateException e) {
-      result.error("videoRecordingFailed", e.getMessage(), null);
-      return;
+    public void resumeVideoRecording(@NonNull final Result result) {
+        if (!recordingVideo) {
+            result.success(null);
+            return;
+        }
+
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                mediaRecorder.resume();
+            } else {
+                result.error(
+                        "videoRecordingFailed", "resumeVideoRecording requires Android API +24.", null);
+                return;
+            }
+        } catch (IllegalStateException e) {
+            result.error("videoRecordingFailed", e.getMessage(), null);
+            return;
+        }
+
+        result.success(null);
     }
 
-    result.success(null);
-  }
-
-  public void startPreview() throws CameraException {
-    try {
-      camera.setPreviewTexture(flutterTexture.surfaceTexture());
-      camera.startPreview();
-    }catch (RuntimeException | IOException e){
-       throw new CameraException(e);
+    public void startPreview() throws CameraException {
+        try {
+            camera.setPreviewTexture(flutterTexture.surfaceTexture());
+            camera.startPreview();
+        } catch (RuntimeException | IOException e) {
+            throw new CameraException(e);
+        }
     }
-  }
 
-  public void startPreviewWithImageStream(EventChannel imageStreamChannel)
-      throws CameraException {
+    public void startPreviewWithImageStream(EventChannel imageStreamChannel)
+            throws CameraException {
 //    createCaptureSession(CameraDevice.TEMPLATE_RECORD, imageStreamReader.getSurface());
 //
 //    imageStreamChannel.setStreamHandler(
@@ -524,9 +518,9 @@ public class CameraLegacy implements io.flutter.plugins.camera.Camera {
 //            imageStreamReader.setOnImageAvailableListener(null, null);
 //          }
 //        });
-  }
+    }
 
-  private void setImageStreamImageAvailableListener(final EventChannel.EventSink imageStreamSink) {
+    private void setImageStreamImageAvailableListener(final EventChannel.EventSink imageStreamSink) {
 //    imageStreamReader.setOnImageAvailableListener(
 //        reader -> {
 //          Image img = reader.acquireLatestImage();
@@ -557,16 +551,16 @@ public class CameraLegacy implements io.flutter.plugins.camera.Camera {
 //          img.close();
 //        },
 //        null);
-  }
+    }
 
-  private void closeCaptureSession() {
+    private void closeCaptureSession() {
 //    if (cameraCaptureSession != null) {
 //      cameraCaptureSession.close();
 //      cameraCaptureSession = null;
 //    }
-  }
+    }
 
-  public void close() {
+    public void close() {
 //    closeCaptureSession();
 //
 //    if (cameraDevice != null) {
@@ -581,25 +575,25 @@ public class CameraLegacy implements io.flutter.plugins.camera.Camera {
 //      imageStreamReader.close();
 //      imageStreamReader = null;
 //    }
-    if (mediaRecorder != null) {
-      mediaRecorder.reset();
-      mediaRecorder.release();
-      mediaRecorder = null;
+        if (mediaRecorder != null) {
+            mediaRecorder.reset();
+            mediaRecorder.release();
+            mediaRecorder = null;
+        }
+        camera.stopPreview();
     }
-    camera.stopPreview();
-  }
 
-  public void dispose() {
-    close();
-    flutterTexture.release();
-    orientationEventListener.disable();
-  }
+    public void dispose() {
+        close();
+        flutterTexture.release();
+        orientationEventListener.disable();
+    }
 
-  private int getMediaOrientation() {
-    final int sensorOrientationOffset =
-        (currentOrientation == ORIENTATION_UNKNOWN)
-            ? 0
-            : (isFrontFacing) ? -currentOrientation : currentOrientation;
-    return (sensorOrientationOffset + sensorOrientation + 360) % 360;
-  }
+    private int getMediaOrientation() {
+        final int sensorOrientationOffset =
+                (currentOrientation == ORIENTATION_UNKNOWN)
+                        ? 0
+                        : (isFrontFacing) ? -currentOrientation : currentOrientation;
+        return (sensorOrientationOffset + sensorOrientation + 360) % 360;
+    }
 }
