@@ -6,7 +6,10 @@ import static io.flutter.plugins.camera.CameraUtils.computeBestPreviewSize;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.ImageFormat;
+import android.graphics.Matrix;
 import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCaptureSession;
@@ -222,10 +225,21 @@ public class CameraV2 implements Camera {
   }
 
   private void writeToFile(ByteBuffer buffer, File file) throws IOException {
+    int bufferSize = buffer.remaining();
+    byte[] data  = new byte[bufferSize];
+    buffer.get(data, 0, bufferSize);
     try (FileOutputStream outputStream = new FileOutputStream(file)) {
-      while (0 < buffer.remaining()) {
-        outputStream.getChannel().write(buffer);
-      }
+        Bitmap originalImage = BitmapFactory.decodeByteArray(data, 0, data.length);
+        Matrix matrix = new Matrix();
+        if (isFrontFacing) {
+          matrix.preScale(-1, 1);
+          matrix.postRotate(getMediaOrientation() - 180);
+        } else {
+          matrix.postRotate(getMediaOrientation());
+        }
+        Bitmap rotatedBitmap = Bitmap.createBitmap(originalImage, 0, 0, originalImage.getWidth(), originalImage.getHeight(),
+                matrix, false);
+        rotatedBitmap.compress(Bitmap.CompressFormat.JPEG, 100, outputStream);
     }
   }
 
