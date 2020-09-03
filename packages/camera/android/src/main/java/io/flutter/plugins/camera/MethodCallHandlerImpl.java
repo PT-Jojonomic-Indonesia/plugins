@@ -152,8 +152,7 @@ final class MethodCallHandlerImpl implements MethodChannel.MethodCallHandler {
         textureRegistry.createSurfaceTexture();
     DartMessenger dartMessenger = new DartMessenger(messenger, flutterSurfaceTexture.id());
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-      camera =
-          new CameraV2(
+      camera = new CameraV2(
               activity,
               flutterSurfaceTexture,
               dartMessenger,

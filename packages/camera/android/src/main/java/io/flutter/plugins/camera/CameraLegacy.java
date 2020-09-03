@@ -4,9 +4,11 @@ import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.ImageFormat;
 import android.graphics.Matrix;
 import android.hardware.Camera;
 import android.media.CamcorderProfile;
+import android.media.Image;
 import android.media.MediaRecorder;
 import android.os.Build;
 import android.util.Log;
@@ -19,7 +21,9 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -45,6 +49,7 @@ public class CameraLegacy implements io.flutter.plugins.camera.Camera {
     private final SizeMap mPictureSizes = new SizeMap();
 
     private Camera camera;
+    private Camera.PreviewCallback previewCallback;
     //  private CameraDevice cameraDevice;
 //  private CameraCaptureSession cameraCaptureSession;
 //  private ImageReader pictureImageReader;
@@ -172,74 +177,6 @@ public class CameraLegacy implements io.flutter.plugins.camera.Camera {
         reply.put("previewWidth", previewSize.getWidth());
         reply.put("previewHeight", previewSize.getHeight());
         result.success(reply);
-//    pictureImageReader =
-//        ImageReader.newInstance(
-//            captureSize.getWidth(), captureSize.getHeight(), ImageFormat.JPEG, 2);
-//
-//    // Used to steam image byte data to dart side.
-//    imageStreamReader =
-//        ImageReader.newInstance(
-//            previewSize.getWidth(), previewSize.getHeight(), ImageFormat.YUV_420_888, 2);
-//
-//    cameraManager.openCamera(
-//        cameraName,
-//        new CameraDevice.StateCallback() {
-//          @Override
-//          public void onOpened(@NonNull CameraDevice device) {
-//            cameraDevice = device;
-//            try {
-//              startPreview();
-//            } catch (CameraAccessException e) {
-//              result.error("CameraAccess", e.getMessage(), null);
-//              close();
-//              return;
-//            }
-//            Map<String, Object> reply = new HashMap<>();
-//            reply.put("textureId", flutterTexture.id());
-//            reply.put("previewWidth", previewSize.getWidth());
-//            reply.put("previewHeight", previewSize.getHeight());
-//            result.success(reply);
-//          }
-//
-//          @Override
-//          public void onClosed(@NonNull CameraDevice camera) {
-//            dartMessenger.sendCameraClosingEvent();
-//            super.onClosed(camera);
-//          }
-//
-//          @Override
-//          public void onDisconnected(@NonNull CameraDevice cameraDevice) {
-//            close();
-//            dartMessenger.send(DartMessenger.EventType.ERROR, "The camera was disconnected.");
-//          }
-//
-//          @Override
-//          public void onError(@NonNull CameraDevice cameraDevice, int errorCode) {
-//            close();
-//            String errorDescription;
-//            switch (errorCode) {
-//              case ERROR_CAMERA_IN_USE:
-//                errorDescription = "The camera device is in use already.";
-//                break;
-//              case ERROR_MAX_CAMERAS_IN_USE:
-//                errorDescription = "Max cameras in use";
-//                break;
-//              case ERROR_CAMERA_DISABLED:
-//                errorDescription = "The camera device could not be opened due to a device policy.";
-//                break;
-//              case ERROR_CAMERA_DEVICE:
-//                errorDescription = "The camera device has encountered a fatal error";
-//                break;
-//              case ERROR_CAMERA_SERVICE:
-//                errorDescription = "The camera service has encountered a fatal error.";
-//                break;
-//              default:
-//                errorDescription = "Unknown camera error";
-//            }
-//            dartMessenger.send(DartMessenger.EventType.ERROR, errorDescription);
-//          }
-//        },
-//        null);
     }
 
     private void writeToFile(ByteBuffer buffer, File file) throws IOException {
@@ -297,140 +234,10 @@ public class CameraLegacy implements io.flutter.plugins.camera.Camera {
                 }
             });
         }
-//    final File file = new File(filePath);
-//
-//    if (file.exists()) {
-//      result.error(
-//          "fileExists", "File at path '" + filePath + "' already exists. Cannot overwrite.", null);
-//      return;
-//    }
-//
-//    pictureImageReader.setOnImageAvailableListener(
-//        reader -> {
-//          try (Image image = reader.acquireLatestImage()) {
-//            ByteBuffer buffer = image.getPlanes()[0].getBuffer();
-//            writeToFile(buffer, file);
-//            result.success(null);
-//          } catch (IOException e) {
-//            result.error("IOError", "Failed saving image", null);
-//          }
-//        },
-//        null);
-//
-//    try {
-//      final CaptureRequest.Builder captureBuilder =
-//          cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE);
-//      captureBuilder.addTarget(pictureImageReader.getSurface());
-//      captureBuilder.set(CaptureRequest.JPEG_ORIENTATION, getMediaOrientation());
-//
-//      cameraCaptureSession.capture(
-//          captureBuilder.build(),
-//          new CameraCaptureSession.CaptureCallback() {
-//            @Override
-//            public void onCaptureFailed(
-//                @NonNull CameraCaptureSession session,
-//                @NonNull CaptureRequest request,
-//                @NonNull CaptureFailure failure) {
-//              String reason;
-//              switch (failure.getReason()) {
-//                case CaptureFailure.REASON_ERROR:
-//                  reason = "An error happened in the framework";
-//                  break;
-//                case CaptureFailure.REASON_FLUSHED:
-//                  reason = "The capture has failed due to an abortCaptures() call";
-//                  break;
-//                default:
-//                  reason = "Unknown reason";
-//              }
-//              result.error("captureFailure", reason, null);
-//            }
-//          },
-//          null);
-//    } catch (CameraAccessException e) {
-//      result.error("cameraAccess", e.getMessage(), null);
-//    }
-    }
-
-    private void createCaptureSession(int templateType, Surface... surfaces)
-            throws CameraException {
-//    createCaptureSession(templateType, null, surfaces);
-    }
-
-    private void createCaptureSession(
-            int templateType, Runnable onSuccessCallback, Surface... surfaces)
-            throws CameraException {
-//    // Close any existing capture session.
-//    closeCaptureSession();
-//
-//    // Create a new capture builder.
-//    captureRequestBuilder = cameraDevice.createCaptureRequest(templateType);
-//
-//    // Build Flutter surface to render to
-//    SurfaceTexture surfaceTexture = flutterTexture.surfaceTexture();
-//    surfaceTexture.setDefaultBufferSize(previewSize.getWidth(), previewSize.getHeight());
-//    Surface flutterSurface = new Surface(surfaceTexture);
-//    captureRequestBuilder.addTarget(flutterSurface);
-//
-//    List<Surface> remainingSurfaces = Arrays.asList(surfaces);
-//    if (templateType != CameraDevice.TEMPLATE_PREVIEW) {
-//      // If it is not preview mode, add all surfaces as targets.
-//      for (Surface surface : remainingSurfaces) {
-//        captureRequestBuilder.addTarget(surface);
-//      }
-//    }
-//
-//    // Prepare the callback
-//    CameraCaptureSession.StateCallback callback =
-//        new CameraCaptureSession.StateCallback() {
-//          @Override
-//          public void onConfigured(@NonNull CameraCaptureSession session) {
-//            try {
-//              if (cameraDevice == null) {
-//                dartMessenger.send(
-//                    DartMessenger.EventType.ERROR, "The camera was closed during configuration.");
-//                return;
-//              }
-//              cameraCaptureSession = session;
-//              captureRequestBuilder.set(
-//                  CaptureRequest.CONTROL_MODE, CameraMetadata.CONTROL_MODE_AUTO);
-//              cameraCaptureSession.setRepeatingRequest(captureRequestBuilder.build(), null, null);
-//              if (onSuccessCallback != null) {
-//                onSuccessCallback.run();
-//              }
-//            } catch (CameraAccessException | IllegalStateException | IllegalArgumentException e) {
-//              dartMessenger.send(DartMessenger.EventType.ERROR, e.getMessage());
-//            }
-//          }
-//
-//          @Override
-//          public void onConfigureFailed(@NonNull CameraCaptureSession cameraCaptureSession) {
-//            dartMessenger.send(
-//                DartMessenger.EventType.ERROR, "Failed to configure camera session.");
-//          }
-//        };
-//
-//    // Collect all surfaces we want to render to.
-//    List<Surface> surfaceList = new ArrayList<>();
-//    surfaceList.add(flutterSurface);
-//    surfaceList.addAll(remainingSurfaces);
-//    // Start the session
-//    cameraDevice.createCaptureSession(surfaceList, callback, null);
     }
 
     public void startVideoRecording(String filePath, Result result) {
-//    if (new File(filePath).exists()) {
-//      result.error("fileExists", "File at path '" + filePath + "' already exists.", null);
-//      return;
-//    }
-//    try {
-//      prepareMediaRecorder(filePath);
-//      recordingVideo = true;
-//      createCaptureSession(
-//          CameraDevice.TEMPLATE_RECORD, () -> mediaRecorder.start(), mediaRecorder.getSurface());
-//      result.success(null);
-//    } catch (CameraAccessException | IOException e) {
-//      result.error("videoRecordingFailed", e.getMessage(), null);
-//    }
+        throw new UnsupportedOperationException("Video Recording not supported");
     }
 
     public void stopVideoRecording(@NonNull final Result result) {
@@ -495,6 +302,7 @@ public class CameraLegacy implements io.flutter.plugins.camera.Camera {
 
     public void startPreview() throws CameraException {
         try {
+            camera.setPreviewCallbackWithBuffer(null);
             camera.setPreviewTexture(flutterTexture.surfaceTexture());
             camera.startPreview();
         } catch (RuntimeException | IOException e) {
@@ -504,77 +312,46 @@ public class CameraLegacy implements io.flutter.plugins.camera.Camera {
 
     public void startPreviewWithImageStream(EventChannel imageStreamChannel)
             throws CameraException {
-//    createCaptureSession(CameraDevice.TEMPLATE_RECORD, imageStreamReader.getSurface());
-//
-//    imageStreamChannel.setStreamHandler(
-//        new EventChannel.StreamHandler() {
-//          @Override
-//          public void onListen(Object o, EventChannel.EventSink imageStreamSink) {
-//            setImageStreamImageAvailableListener(imageStreamSink);
-//          }
-//
-//          @Override
-//          public void onCancel(Object o) {
-//            imageStreamReader.setOnImageAvailableListener(null, null);
-//          }
-//        });
-    }
+        try {
+            imageStreamChannel.setStreamHandler(
+                    new EventChannel.StreamHandler() {
+                        @Override
+                        public void onListen(Object o, EventChannel.EventSink imageStreamSink) {
+                            Camera.Size size = camera.getParameters().getPreviewSize();
+                            camera.setPreviewCallbackWithBuffer((data, camera) -> {
+                                Camera.Size previewSize = camera.getParameters().getPreviewSize();
+                                List<Map<String, Object>> planes = new ArrayList<>();
+                                Map<String, Object> planeBuffer = new HashMap<>();
+                                planeBuffer.put("bytesPerRow", previewSize.height);
+                                planeBuffer.put("bytesPerPixel", ImageFormat.getBitsPerPixel(camera.getParameters().getPreviewFormat()));
+                                planeBuffer.put("bytes", data);
 
-    private void setImageStreamImageAvailableListener(final EventChannel.EventSink imageStreamSink) {
-//    imageStreamReader.setOnImageAvailableListener(
-//        reader -> {
-//          Image img = reader.acquireLatestImage();
-//          if (img == null) return;
-//
-//          List<Map<String, Object>> planes = new ArrayList<>();
-//          for (Image.Plane plane : img.getPlanes()) {
-//            ByteBuffer buffer = plane.getBuffer();
-//
-//            byte[] bytes = new byte[buffer.remaining()];
-//            buffer.get(bytes, 0, bytes.length);
-//
-//            Map<String, Object> planeBuffer = new HashMap<>();
-//            planeBuffer.put("bytesPerRow", plane.getRowStride());
-//            planeBuffer.put("bytesPerPixel", plane.getPixelStride());
-//            planeBuffer.put("bytes", bytes);
-//
-//            planes.add(planeBuffer);
-//          }
-//
-//          Map<String, Object> imageBuffer = new HashMap<>();
-//          imageBuffer.put("width", img.getWidth());
-//          imageBuffer.put("height", img.getHeight());
-//          imageBuffer.put("format", img.getFormat());
-//          imageBuffer.put("planes", planes);
-//
-//          imageStreamSink.success(imageBuffer);
-//          img.close();
-//        },
-//        null);
-    }
+                                planes.add(planeBuffer);
 
-    private void closeCaptureSession() {
-//    if (cameraCaptureSession != null) {
-//      cameraCaptureSession.close();
-//      cameraCaptureSession = null;
-//    }
+                                Map<String, Object> imageBuffer = new HashMap<>();
+                                imageBuffer.put("width", previewSize.width);
+                                imageBuffer.put("height", previewSize.height);
+                                imageBuffer.put("format", camera.getParameters().getPreviewFormat());
+                                imageBuffer.put("planes", planes);
+
+                                imageStreamSink.success(imageBuffer);
+                                camera.addCallbackBuffer(new byte[getYUVByteSize(size.height, size.width)]);
+                            });
+                            camera.addCallbackBuffer(new byte[getYUVByteSize(size.height, size.width)]);
+                        }
+
+                        @Override
+                        public void onCancel(Object o) {
+                            camera.setPreviewCallbackWithBuffer(null);
+                        }
+                    });
+            camera.startPreview();
+        } catch (RuntimeException e) {
+            throw new CameraException(e);
+        }
     }
 
     public void close() {
-//    closeCaptureSession();
-//
-//    if (cameraDevice != null) {
-//      cameraDevice.close();
-//      cameraDevice = null;
-//    }
-//    if (pictureImageReader != null) {
-//      pictureImageReader.close();
-//      pictureImageReader = null;
-//    }
-//    if (imageStreamReader != null) {
-//      imageStreamReader.close();
-//      imageStreamReader = null;
-//    }
         if (mediaRecorder != null) {
             mediaRecorder.reset();
             mediaRecorder.release();
@@ -595,5 +372,11 @@ public class CameraLegacy implements io.flutter.plugins.camera.Camera {
                         ? 0
                         : (isFrontFacing) ? -currentOrientation : currentOrientation;
         return (sensorOrientationOffset + sensorOrientation + 360) % 360;
+    }
+
+    private int getYUVByteSize(int width, int height){
+        int ySize = width * height;
+        int uvSize = (width + 1) / 2 * ((height + 1) / 2) * 2;
+        return ySize + uvSize;
     }
 }
