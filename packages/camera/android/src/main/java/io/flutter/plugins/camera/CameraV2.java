@@ -49,7 +49,6 @@ import java.util.Map;
 public class CameraV2 implements Camera {
     private final SurfaceTextureEntry flutterTexture;
     private final CameraManager cameraManager;
-    private final OrientationEventListener orientationEventListener;
     private final boolean isFrontFacing;
     private final int sensorOrientation;
     private final String cameraName;
@@ -95,18 +94,6 @@ public class CameraV2 implements Camera {
         this.flutterTexture = flutterTexture;
         this.dartMessenger = dartMessenger;
         this.cameraManager = (CameraManager) activity.getSystemService(Context.CAMERA_SERVICE);
-        orientationEventListener =
-                new OrientationEventListener(activity.getApplicationContext()) {
-                    @Override
-                    public void onOrientationChanged(int i) {
-                        if (i == ORIENTATION_UNKNOWN) {
-                            return;
-                        }
-                        // Convert the raw deg angle to the nearest multiple of 90.
-                        currentOrientation = (int) Math.round(i / 90.0) * 90;
-                    }
-                };
-        orientationEventListener.enable();
 
         try {
             CameraCharacteristics characteristics = cameraManager.getCameraCharacteristics(cameraName);
@@ -539,7 +526,6 @@ public class CameraV2 implements Camera {
     public void dispose() {
         close();
         flutterTexture.release();
-        orientationEventListener.disable();
     }
 
     private int getMediaOrientation() {
