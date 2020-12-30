@@ -2,6 +2,8 @@ package io.flutter.plugins.camera;
 
 import android.app.Activity;
 import android.hardware.camera2.CameraAccessException;
+import android.os.Build;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import io.flutter.plugin.common.BinaryMessenger;
@@ -20,7 +22,8 @@ final class MethodCallHandlerImpl implements MethodChannel.MethodCallHandler {
   private final TextureRegistry textureRegistry;
   private final MethodChannel methodChannel;
   private final EventChannel imageStreamChannel;
-  private @Nullable Camera camera;
+  private @Nullable
+  Camera camera;
 
   MethodCallHandlerImpl(
       Activity activity,
@@ -141,21 +144,30 @@ final class MethodCallHandlerImpl implements MethodChannel.MethodCallHandler {
     methodChannel.setMethodCallHandler(null);
   }
 
-  private void instantiateCamera(MethodCall call, Result result) throws CameraAccessException {
+  private void instantiateCamera(MethodCall call, Result result) throws CameraException {
     String cameraName = call.argument("cameraName");
     String resolutionPreset = call.argument("resolutionPreset");
     boolean enableAudio = call.argument("enableAudio");
     TextureRegistry.SurfaceTextureEntry flutterSurfaceTexture =
         textureRegistry.createSurfaceTexture();
     DartMessenger dartMessenger = new DartMessenger(messenger, flutterSurfaceTexture.id());
-    camera =
-        new Camera(
-            activity,
-            flutterSurfaceTexture,
-            dartMessenger,
-            cameraName,
-            resolutionPreset,
-            enableAudio);
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+      camera = new CameraV2(
+              activity,
+              flutterSurfaceTexture,
+              dartMessenger,
+              cameraName,
+              resolutionPreset,
+              enableAudio);
+    } else {
+      camera = new CameraLegacy(
+              activity,
+              flutterSurfaceTexture,
+              dartMessenger,
+              cameraName,
+              resolutionPreset,
+              enableAudio);
+    }
 
     camera.open(result);
   }
@@ -165,7 +177,7 @@ final class MethodCallHandlerImpl implements MethodChannel.MethodCallHandler {
   // to be able to compile with <21 sdks for apps that want the camera and support earlier version.
   @SuppressWarnings("ConstantConditions")
   private void handleException(Exception exception, Result result) {
-    if (exception instanceof CameraAccessException) {
+    if (exception instanceof CameraException) {
       result.error("CameraAccess", exception.getMessage(), null);
     }
 
